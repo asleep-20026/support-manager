@@ -1,0 +1,38 @@
+@startuml graphqlsequence
+
+title Sequence Diagram - GraphQL Request Flow in Hexagonal Architecture
+
+actor Client
+participant "GraphQL UI (frontend)" as UI
+participant "schema.graphql (definición de operaciones)" as Schema
+participant "Resolver (conector entre UI y dominio)" as Resolver
+participant "Use Case Port (contrato)" as Port
+participant "Use Case Service (lógica de negocio)" as Service
+participant "Repository Port (contrato de datos)" as RepoPort
+participant "Repository Impl (JPA u ORM)" as RepoImpl
+database "Database (PostgreSQL u otro)" as DB
+
+== Inicio de la consulta ==
+Client -> UI : Envía query/mutation GraphQL
+UI -> Schema : Valida operación y argumentos
+Schema -> Resolver : Llama al método correspondiente
+
+== Paso por dominio ==
+Resolver -> Port : Llama al caso de uso (interface)
+Port -> Service : Implementación del caso de uso
+
+== Acceso a datos ==
+Service -> RepoPort : Solicita operación de datos
+RepoPort -> RepoImpl : Implementa acceso a datos
+RepoImpl -> DB : Ejecuta consulta o inserción
+DB --> RepoImpl : Devuelve datos o confirmación
+
+== Retorno de datos ==
+RepoImpl --> RepoPort : Resultado del repositorio
+RepoPort --> Service : Resultado de datos
+Service --> Port : Resultado procesado
+Port --> Resolver : Devuelve objeto del dominio
+Resolver --> UI : Devuelve resultado GraphQL
+UI --> Client : Muestra respuesta
+
+@enduml

@@ -1,0 +1,857 @@
+Crear un nuevo usuario (rol) para Quarkus
+🔎 PASO 1: Abrir el árbol de objetos
+Abre pgAdmin.
+
+A la izquierda, verás una barra lateral llamada "Browser" o "Navegador".
+
+Expande este árbol:
+
+pgsql
+Copiar código
+Servers
+└── PostgreSQL <tu versión>
+    ├── Databases
+    ├── Login/Group Roles ← ¡Esto es lo que buscamos!
+    └── Tablespaces
+❓¿No ves “Login/Group Roles”?
+➡️ Haz esto:
+
+Asegúrate de que hayas iniciado sesión correctamente en tu servidor.
+
+Si no está expandido, haz doble clic en PostgreSQL (donde dice tu versión, como PostgreSQL 15 o PostgreSQL 16).
+
+Espera unos segundos, y verás que aparece la carpeta Login/Group Roles.
+
+👤 PASO 2: Crear el nuevo usuario
+Haz clic derecho sobre Login/Group Roles.
+
+Elige: Create > Login/Group Role.
+
+Se abre una ventana con varias pestañas.
+
+✍️ Completa los campos así:
+📄 Pestaña “General”:
+Name: asistappuser
+
+🔐 Pestaña “Definition”:
+Password: 1234 (puedes cambiarla luego)
+
+Marca ✅ la opción Can login?
+
+✅ Pestaña “Privileges”:
+Marca lo siguiente:
+
+✅ Login
+
+✅ Create DB (opcional)
+
+✅ Create role (opcional)
+
+Luego haz clic en Save.
+-------------------------------------------
+
+
+
+
+¿Quieres que te ayude a revisar el contenido actual de 
+Empleado.java y EmpleadoEntity.java?
+Eso ayudará a asegurar que estén bien alineados con 
+el mapper de EmpleadoRepositoryImpl.
+------------------------------------
+
+
+--
+Tests paused
+Press [e] to edit command line args (currently ''), [r] 
+to resume testing, [o] Toggle test output, [:] for 
+the terminal, [h] for more options>    
+
+Sugerencia (para tu caso)
+Como aún no estás trabajando en pruebas automáticas, 
+puedes ignorar esa sección de momento.
+Cuando aprendas testing, este modo será muy útil, 
+pero por ahora no necesitas preocuparte por los mensajes de 
+Tests paused.
+---------------------------------------
+
+
+Si solo quieres usar tu aplicación:
+Abre tu navegador y ve a: 👉 http://localhost:8080
+
+O accede a GraphQL UI: 👉 http://localhost:8080/q/graphql-ui
+-----------------------------------
+
+GraphQL Resolver
+└── llama a RegisterAttendanceUseCase.registrar()
+     └── implementado por RegisterAttendanceService
+         └── llama a AttendanceRepository.save()
+             └── implementado por AttendanceRepositoryImpl
+                 └── usa EntityManager para guardar en la base de datos (AttendanceEntity)
+------------------------------------------
+
+Para estudiar este flujo, estos son los archivos clave que ya tienes:
+| Tipo              | Archivo                          | Ubicación                               | Función                                   |
+| ----------------- | -------------------------------- | --------------------------------------- | ----------------------------------------- |
+| 🧠 Modelo         | `Attendance.java`                | `domain/model`                          | Representa una asistencia                 |
+| 🧩 Interfaz       | `RegisterAttendanceUseCase.java` | `domain/ports/in`                       | Define qué se puede hacer con asistencias |
+| 🔧 Servicio       | `RegisterAttendanceService.java` | `application/usecases`                  | Implementa el registro de asistencia      |
+| 🛠 Repositorio    | `AttendanceRepository.java`      | `domain/ports/out`                      | Firma para acceder a la base de datos     |
+| 💾 Implementación | `AttendanceRepositoryImpl.java`  | `infrastructure/persistence/repository` | Guarda en la base de datos                |
+| 🗃️ Entidad       | `AttendanceEntity.java`          | `infrastructure/persistence/entity`     | Mapeo a tabla `attendance`                |
+----------------------------------------
+
+
+🧠 Si quieres estudiar paso a paso (recomendado):
+Empieza por el modelo Attendance.
+
+Luego pasa a RegisterAttendanceUseCase 
+para ver qué se espera hacer.
+
+Estudia cómo RegisterAttendanceService implementa eso.
+
+Y cómo se guarda usando AttendanceRepositoryImpl y 
+AttendanceEntity.
+------------------------------------
+
+Attendance.java (modelo)
+
+AttendanceRepository.java (puerto de salida)
+
+AttendanceRepositoryImpl.java (implementación)
+
+GetAttendanceByEmployeeUseCase.java (puerto de entrada)
+
+GetAttendanceByEmployeeService.java (servicio)
+
+RegisterAttendanceUseCase.java (puerto de entrada)
+
+RegisterAttendanceService.java (servicio)
+
+AttendanceResolver.java (resolvers GraphQL)
+
+schema.graphql (definición de tipos y operaciones)
+----------------------------------------------------
+
+
+Ports and Adapters
+domain (modelo puro y puertos)
+application (casos de uso)
+infrastructure (resolvers, persistencia)
+---------------------------------------------
+
+
+Ciclo de vida completo de esta query
+
+query {
+  listarAsistencias(empleadoId: 1) {
+    id
+    tipo
+    fecha
+    empleadoId
+  }
+}
+
+
+schema.graphql
+
+type Query {
+  listarAsistencias(empleadoId: Int!): [Attendance]
+}
+; la query (listarAsistencias), qué parámetros recibe, 
+; y qué tipo devuelve.
+
+
+AttendanceResolver.java
+
+@GraphQLApi
+@ApplicationScoped
+public class AttendanceResolver {
+    @Inject
+    GetAttendanceByEmployeeUseCase useCase;
+
+    public List<Attendance> consultarAsistencias(Long empleadoId) {
+        return useCase.obtenerPorEmpleado(empleadoId);
+    }
+}
+; Quarkus ve el nombre del método consultarAsistencias, 
+; y lo expone como listarAsistencias por convención 
+; (esto puedes ajustarlo si usas @Query("listarAsistencias")).
+; Aquí se llama al puerto de entrada del dominio.
+
+
+GetAttendanceByEmployeeUseCase.java
+
+public interface GetAttendanceByEmployeeUseCase {
+    List<Attendance> obtenerPorEmpleado(Long empleadoId);
+}
+;Define qué debe poder hacer el dominio (pero no cómo).
+
+
+GetAttendanceByEmployeeService.java
+
+@ApplicationScoped
+public class GetAttendanceByEmployeeService implements GetAttendanceByEmployeeUseCase {
+    @Inject
+    AttendanceRepository repository;
+
+    public List<Attendance> obtenerPorEmpleado(Long empleadoId) {
+        return repository.findByEmployeeId(empleadoId);
+    }
+}
+; Implementa el caso de uso.
+; Llama a un puerto de salida (AttendanceRepository).
+
+
+AttendanceRepository.java
+
+public interface AttendanceRepository {
+    List<Attendance> findByEmployeeId(Long employeeId);
+}
+;El dominio espera que alguien implemente esta interfaz.
+
+
+AttendanceRepositoryImpl.java
+
+public class AttendanceRepositoryImpl implements AttendanceRepository {
+    @PersistenceContext
+    EntityManager em;
+
+    public List<Attendance> findByEmployeeId(Long id) {
+        // consulta a la base de datos y devuelve lista
+    }
+}
+; Consulta la base de datos (PostgreSQL).
+; Convierte AttendanceEntity en Attendance y los devuelve.
+; Finalmente, la lista de Attendance viaja de vuelta hasta AttendanceResolver, 
+; y es serializada en GraphQL como JSON para ti.
+
+
+GraphQL UI (consulta)
+    ↓
+schema.graphql (verifica) define todas consultas y argumentos
+    ↓
+Resolver (implementa) conecta schema con dominio (cómo es necesario esta parte?)
+    ↓
+Use Case Interface (intruye) cómo se debe implementar
+    ↓
+Use Case Service (implementa) actua sobre repositorio
+    ↓
+Repository Interface (verifica lo necesitado) 
+    ↓
+Repository Impl (accede) JPA para guardar en DB
+    ↓
+Base de Datos (guarda o devuelve)
+--------------------------------------------------------------
+
+Ciclo de vida de solicitudes
+
+GraphQL Client (solicita)
+    ↓
+GraphQL Schema (define contrato API: tipos, queries y mutaciones)
+    ↓
+Resolver Adapter (Adaptador Primario: traduce solicitud a comando de aplicación)
+    ↓
+Use Case Port (interfaz que declara lógica de negocio)
+    ↓
+Use Case Service (implementa reglas de negocio y coordina flujos)
+    ↓
+Repository Port (interfaz que abstrae acceso a datos)
+    ↓
+Repository Adapter (Adaptador Secundario: implementa persistencia concreta)
+    ↓
+Base de Datos (almacenamiento persistente)
+-------------------------------------------------------------
+
+Responsabilidades
+
+¿por qué es necesario?
+----------------------------------------
+
+
+Cliente->>Schema: { user(id: "123") { name email } }
+    Schema-->>Resolver: Valida y enruta query
+    Resolver->>UseCasePort: getUserById("123")
+    UseCasePort->>UseCaseImpl: Ejecuta implementación
+    UseCaseImpl->>RepoPort: findById(123)
+    RepoPort->>RepoImpl: Llama implementación JPA
+    RepoImpl->>DB: SELECT * FROM users...
+    DB-->>RepoImpl: Datos brutos
+    RepoImpl-->>RepoPort: User entity
+    RepoPort-->>UseCaseImpl: Objeto dominio
+    UseCaseImpl-->>UseCasePort: User validado
+    UseCasePort-->>Resolver: DTO de dominio
+    Resolver-->>Schema: Convierte a GraphQL User
+    Schema-->>Cliente: { "user": { "name": "Ana", ... } }
+----------------------------------------------------------
+peticion
+Cliente->>Schema: { user(id: "123") { name email } }
+----------------------------------------------------------------------------
+Schema-->>Resolver: Valida y enruta query
+schema.graphql
+contrato 
+.;Define el contrato público (tipos, queries, mutaciones)
+; ; ; type Query {
+; ; ;   user(id: ID!): User
+; ; ; }
+; ; ; type User {
+; ; ;   id: ID!
+; ; ;   name: String!
+; ; ;   email: String!
+; ; ; }
+- actions  ;GraphQL requiere un esquema fuertemente tipado para validar peticiones
+;valida peticion
+-> flujo ;Valida y enruta query
+---------------------------------------------------------------
+Resolver->>UseCasePort: getUserById("123");Recibe argumentos crudos
+Resolver
+Adaptador primario
+; ; ; @RequiredArgsConstructor
+; ; ; public class UserResolver implements GraphQLQueryResolver {
+    
+; ; ;     private final UserService userService; // Puerto
+    
+; ; ;     public UserResponse user(String id) {
+; ; ;         try {
+; ; ;             return userService.getUserById(new UserId(id));
+; ; ;         } catch (UserNotFoundException e) {
+; ; ;             throw new GraphQLException("Usuario no encontrado");
+; ; ;         }
+; ; ;     }
+; ; ; }
+actions ;recibe argumentos crudos ;convierte inputs a objetos de dominio ;invoca al caso de uso ;maneja errores ;convierte respuestas
+; "Adapto: GraphQL → Dominio"
+; "Invoco: Caso de Uso"
+; Convierto: Dominio → GraphQL"
+flujo ->;Actúa como traductor entre el protocolo GraphQL y tu dominio
+--------------------------------------------------------------------
+UseCasePort->>UseCaseImpl: Ejecuta implementación
+UseCase Port
+contrato de negocio
+.;Define la interfaz abstracta de operaciones de negocio
+; ; ; public interface UserService {
+; ; ;     UserResponse getUserById(UserId id) throws UserNotFoundException;
+; ; ; }
+actions ;Permite invertir dependencias. ;El dominio define qué necesita, no cómo se implementa. 
+;Crucial para testeo y cambiar implementaciones.
+-> flujo (que lo hace enviar a otro archivo) ;
+----------------------------------------------------------------------------------------------
+UseCaseImpl->>RepoPort: findById(123)
+UseCaseImpl
+;Contiene la logica de negocio central ;ejecuta reglas de negocio
+; ; ; @Service
+; ; ; @RequiredArgsConstructor
+; ; ; public class UserServiceImpl implements UserService {
+    
+; ; ;     private final UserRepository repository;
+    
+; ; ;     public UserResponse getUserById(UserId id) {
+; ; ;         User user = repository.findById(id)
+; ; ;             .orElseThrow(() -> new UserNotFoundException(id));
+        
+; ; ;         if (user.isDeactivated()) {
+; ; ;             throw new IllegalStateException("Usuario desactivado");
+; ; ;         }
+        
+; ; ;         return UserResponse.fromDomain(user);
+; ; ;     }
+; ; ; }
+actions ;orquesta flujos entre repositorios ;aplica reglas de negocio
+; "Orquesto flujos"
+; "Aplico reglas"
+; "Decido: mutation o query?"
+-> flujo ;
+- porque ;esta separado del resolver, lógica HTTP y reglas de negocio deben estarlo, 
+;permite reutilizar la LOGICA en diferentes CONTEXTOS (cli, rest, etc)
+----------------------------------------------------------------------------------------------
+RepoPort->>RepoImpl: Llama implementación JPA
+RepoPort
+Define Repositorio
+;define operaciones de persistencia abstracta ;declara como se acceden a la DB
+; ; ; public interface UserRepository {
+; ; ;     Optional<User> findById(UserId id);
+; ; ;     User save(User user);
+; ; ; }
+actions ;
+-> flujo ;
+porque ;desacopla el dominio de la infraestructura. 
+;da la posibilidad de cambiar de mysql a mongoDB sin tocar dominio
+-------------------------------------------------------------------------------------------
+RepoImpl->>DB: SELECT * FROM users...
+RepoImpl
+Adaptador de repositorio
+;implementar persistencia concreta usando JPA en la DB
+; ; ; @Repository
+; ; ; public class JpaUserRepository implements UserRepository {
+    
+; ; ;     private final UserJpaRepository jpaRepo;
+    
+; ; ;     public Optional<User> findById(UserId id) {
+; ; ;         return jpaRepo.findById(id.value())
+; ; ;             .map(this::toDomain);
+; ; ;     }
+    
+; ; ;     private User toDomain(UserEntity entity) {
+; ; ;         return new User(
+; ; ;             new UserId(entity.getId()),
+; ; ;             entity.getName(),
+; ; ;             entity.getEmail()
+; ; ;         );
+; ; ;     }
+; ; ; }
+actions ;
+-> flujo ;
+porque ;Si implementáramos JPA directamente en el servicio, estarías acoplado a Hibernate. 
+;Esto permite cambiar tecnologías fácilmente.
+--------------------------------------------------------------------------------------------
+DB-->>RepoImpl: Datos brutos
+DB
+
+-------------------------------------------------------------------------------------------
+RepoImpl-->>RepoPort: User entity
+-------------------------------------------------------------------------------------------
+RepoPort-->>UseCaseImpl: Objeto dominio
+-------------------------------------------------------------------------------------------
+UseCaseImpl-->>UseCasePort: User validado
+-------------------------------------------------------------------------------------------
+UseCasePort-->>Resolver: DTO de dominio
+-------------------------------------------------------------------------------------------
+Resolver-->>Schema: Convierte a GraphQL User
+----------------------------------------------------------------------------------
+Schema-->>Cliente: { "user": { "name": "Ana", ... } }
+---------------------------------------------------------------------
+
+Sin repositorio: La lógica de negocio se mezcla con SQL/JPQL
+Sin servicio: El resolver contendría reglas de negocio (imposible reusar)
+Sin puertos: Dependencias directas imposibilitan mocks para tests
+============================================================================
+
+Beneficios Clave de Esta Estructura
+Testabilidad unitaria:
+Puedes testear el servicio con un mock del repositorio
+Puedes testear el resolver con un mock del servicio
+
+Cambios seguros:
+Modificar GraphQL no afecta negocio
+Cambiar base de datos no rompe reglas de negocio
+
+Escalabilidad:
+Nuevos adaptadores (Ej: añadir API REST) sin modificar núcleo
+Fácil añadir caché (implementando un decorador del repositorio)
+===============================================================================
+
+¿Cuándo es overkill?
+Para proyectos:
+Muy pequeños (prototipos, MVPs)
+De solo CRUD sin lógica de negocio compleja
+Con requisitos de persistencia fijos y únicos
+
+En estos casos, podrías:
+Combinar servicio y repositorio
+Usar Active Record en lugar de Repository
+Eliminar interfaces si solo hay una implementación
+
+La arquitectura hexagonal brilla cuando tienes:
+Reglas de negocio complejas
+Múltiples formas de interacción (API, CLI, etc.)
+Necesidad de cambiar infraestructura frecuentemente
+Sistema de larga vida con evolución constante
+======================================================================================
+
+=================================================================================
+
+Flujo de una Query o Mutation GraphQL en Arquitectura de puertos y adaptadores
+peticion 
+contrato (schema graphql)
+conecta (resolvers)
+declara (use case)
+orquesta (use case service)
+abstrae (repository interface)
+persiste (repository impl)
+actúa (DB)
+
+
+---------------------
+recibe 
+funcion (valida, transforma, decide)
+invoca (envía)
+
+---------------------------------------------
+Principio de Responsabilidad Única y 
+la Regla de Dependencia Inversa (depender de abstracciones, no implementaciones).
+
+Camino de vuelta:
+   - Adaptador: Convierte registro → Entidad
+   - Servicio: Convierte Entidad → DTO {id, nombre}
+   - Resolver: Convierte DTO → {usuario: {id: "X", nombre: "Ana"}}
+----------------------------------------------------
+
+
+graphql 
+-input: peticion
+process: 
+contruye operacion graphql
+-output: solicitud 
+
+schema graphql
+-imput: solicitud
+process: 
+valida
+-output: argumento graphql
+
+resolver
+-input: argumento graphql
+process: 
+convierte datos a objetos de dominio
+maneja errores basicos
+-output: consulta de dominio
+
+PORT use case port
+-input: consulta de dominio
+process:
+define contrato abstracto
+-output: objeto de dominio validado
+
+ADAPTER "use case service - domain service - use case impl - use case adapter"
+-input: objeto de dominio validado
+process:
+aplica reglas de negocio
+toma decisiones
+orquesta flujos
+-output: instruccion de persistencia
+
+PORT repository port
+-input: instruccion de persistencia
+process:
+define contrato abstracto
+-output: entidad de dominio
+
+ADAPTER "repository impl - repository adapter"
+-input: entidad de dominio
+process:
+mapea objetos
+convierte a modelo de persitencia
+-output: instruccion
+
+DB
+-input: instruction
+process:
+ejecuta instruccion
+-output: 
+---------------------------------------------------------------------------------------------------
+flujo lógico y arquitectónico de una operación GraphQL con arquitectura hexagonal
+
+
+1. GraphQL UI (frontend / comensal)
+
+Input: Petición desde el navegador o frontend
+
+Proceso: Construye y envía una operación GraphQL (query o mutation)
+
+Output: Solicitud GraphQL enviada al backend
+
+2. schema.graphql (menú)
+
+Input: Solicitud GraphQL
+
+Proceso:
+
+Valida el nombre de la operación
+
+Valida los tipos y argumentos
+
+Output: Argumentos correctos para el resolver
+
+3. Resolver (mesero)
+
+Input: Argumentos GraphQL validados
+
+Proceso:
+
+Convierte datos en objetos del dominio
+
+Maneja errores básicos
+
+Llama al caso de uso correspondiente
+
+Output: Consulta o comando del dominio
+
+4. Use Case Port (pedido escrito / contrato del chef)
+
+Input: Consulta o comando del dominio
+
+Proceso:
+
+Define la interfaz (contrato)
+
+Declara qué se necesita del dominio, sin implementar
+
+Output: Objeto del dominio validado
+
+5. Use Case Service (chef)
+
+Input: Objeto del dominio validado
+
+Proceso:
+
+Aplica lógica de negocio (reglas)
+
+Orquesta llamadas a los repositorios
+
+Output: Instrucción de persistencia o resultado
+
+6. Repository Port (pedido a cocina)
+
+Input: Instrucción de persistencia
+
+Proceso:
+
+Define el contrato para acceder a los datos
+
+Output: Objeto del dominio listo para persistir
+
+7. Repository Implementation (cocina)
+
+Input: Objeto de dominio
+
+Proceso:
+
+Mapea objeto de dominio a entidad JPA
+
+Usa JPA para acceder a la base de datos
+
+Output: Instrucción SQL / resultado persistido
+
+8. Base de Datos (despensa)
+
+Input: Instrucción SQL
+
+Proceso:
+
+Ejecuta consulta, inserción o actualización
+
+Output: Datos leídos o confirmación de guardado
+
+Analogía completa con el restaurante (8 elementos)
+
+Comensal (GraphQL UI)
+
+Hace la petición de un plato
+
+Menú (schema.graphql)
+
+Muestra qué platos existen y cómo pedirlos
+
+Mesero (Resolver)
+
+Toma la orden, la valida y la lleva a la cocina
+
+Pedido escrito (Use Case Port)
+
+Especificación formal de qué se pidió y cómo debe prepararse
+
+Chef (Use Case Service)
+
+Decide cómo preparar el plato según reglas del restaurante
+
+Pedido a cocina (Repository Port)
+
+Solicita ingredientes o preparación específica a la cocina
+
+Cocina (Repository Impl)
+
+Prepara el plato real con acceso a ingredientes
+
+Despensa (Base de Datos)
+
+Guarda y suministra los ingredientes (datos)
+
+
+
+===========================================================================================
+GraphQL Input → Comando Dominio → Entidad → Modelo Persistencia → Almacenamiento
+=============================================================================================
+
+Validaciones
+
+Logging
+
+Caché
+
+Transformaciones
+
+
+---------------------------------------------------------
+
+🧠 Resumen del Proyecto: AsistApp
+🎯 Objetivo
+Desarrollar una aplicación de gestión de asistencias para empleados, usando Quarkus, GraphQL, y arquitectura hexagonal (clean architecture).
+
+🏛️ Arquitectura Hexagonal Aplicada
+La app sigue una estructura por capas, separando responsabilidades de forma clara:
+
+java
+Copiar código
+         ┌──────────── GraphQL UI ────────────┐
+         │         (Frontend - navegador)     │
+         └──────────────┬─────────────────────┘
+                        ▼
+                 schema.graphql (menú)
+                        ▼
+                 Resolver (mesero)
+                        ▼
+            Use Case Port (contrato del chef)
+                        ▼
+          Use Case Impl/Service (chef principal)
+                        ▼
+           Repository Port (pedido a cocina)
+                        ▼
+         Repository Impl (cocina con JPA/SQL)
+                        ▼
+             Base de datos PostgreSQL (despensa)
+📁 Estructura de carpetas
+plaintext
+Copiar código
+src/
+└─ main/
+   ├─ java/com/joyit/
+   │  ├─ application/usecases/   ← lógica del negocio
+   │  ├─ domain/model/           ← entidades del dominio
+   │  ├─ domain/ports/in/        ← interfaces de casos de uso
+   │  ├─ domain/ports/out/       ← interfaces de repositorio
+   │  ├─ infrastructure/
+   │  │  ├─ graphql/resolvers/   ← resolvers GraphQL
+   │  │  ├─ persistence/entity/  ← entidades JPA
+   │  │  ├─ persistence/repository/ ← repositorios JPA
+   │  └─ AsistApp.java           ← punto de entrada
+   ├─ resources/
+   │  ├─ META-INF/resources/graphql/schema.graphql ← esquema GraphQL
+   │  └─ application.properties  ← configuración Quarkus
+📦 Dependencias clave (en pom.xml)
+quarkus-smallrye-graphql → Para usar GraphQL
+
+quarkus-hibernate-orm-panache → ORM con JPA
+
+quarkus-jdbc-postgresql → Driver PostgreSQL
+
+quarkus-arc → Inyección de dependencias
+
+quarkus-rest-jackson, quarkus-rest → (opcional) para REST
+
+quarkus-smallrye-jwt → Seguridad con JWT (si decides usarla)
+
+🧩 Entidades importantes
+Attendance.java (Dominio)
+id: Int
+
+tipo: String
+
+fecha: String
+
+empleadoId: Int
+
+AttendanceEntity.java (JPA)
+Equivalente al modelo Attendance, mapeado con @Entity.
+
+🔧 Funcionalidad implementada (GraphQL)
+✅ Query
+graphql
+Copiar código
+query {
+  listarAsistencias(empleadoId: 1) {
+    id
+    tipo
+    fecha
+    empleadoId
+  }
+}
+✅ Mutation
+graphql
+Copiar código
+mutation {
+  registrarAsistencia(
+    id: 1,
+    tipo: "entrada",
+    fecha: "2025-07-29",
+    empleadoId: 1
+  ) {
+    id
+    tipo
+    fecha
+    empleadoId
+  }
+}
+Resolver asociado: AttendanceResolver.java
+Llama a los casos de uso
+
+Conecta con GetAttendanceByEmployeeUseCase y RegisterAttendanceUseCase
+
+✅ Estado actual
+🟢 El servidor levanta correctamente en http://localhost:8080/q/graphql-ui
+
+🟢 Se pueden hacer consultas y mutaciones exitosas
+
+🟢 No hay errores en la consola ni conflictos de dependencias
+
+🟢 Diagramas .puml organizados por tipo en uml-diagrams/
+
+🧪 Se eliminó el test de ejemplo fallido (GreetingResourceTest)
+
+📌 Se entiende el ciclo de vida completo de una operación GraphQL
+
+---------------------------------------------------------------
+
+🧠 Cómo fluye una petición GraphQL
+Frontend (GraphQL Playground o cliente) hace una petición.
+
+schema.graphql valida la estructura de la operación.
+
+Resolver recibe argumentos y llama al caso de uso (interface).
+
+La implementación del caso de uso orquesta la lógica.
+
+Llama al puerto de repositorio.
+
+La implementación del repositorio convierte a entidad y usa JPA.
+
+La base de datos guarda o devuelve datos.
+
+Todo el camino de vuelta sube hasta el cliente.
+
+--------------------------------------------------------
+
+ Recomendaciones para seguir
+✅ Seguir creando queries y mutations para Employee, UserAccount, etc.
+
+🎯 Aprender testing con QuarkusTest (cuando estés listo).
+
+📚 Estudiar validaciones con Bean Validation (@NotNull, etc.).
+
+🧩 Añadir seguridad (JWT) si se requiere login real.
+
+🗃️ Usar más funcionalidades de Panache o repositorios custom.
+------------------------------------------------------
+
+Si el backend sí está corriendo pero el error persiste, necesito los siguientes archivos:
+⚠️ Puedes enviármelos uno por uno si lo prefieres, o copiar su contenido aquí.
+
+AttendanceResolver.java
+(está en infrastructure/graphql/resolvers/)
+
+schema.graphql
+(en resources/META-INF/resources/graphql/)
+
+application.properties
+(en resources/)
+
+AttendanceEntity.java
+(por si hay conflicto con JPA)
+
+GetAttendanceByEmployeeUseCase.java
+
+GetAttendanceByEmployeeService.java
+
+AttendanceRepository.java
+
+AttendanceRepositoryImpl.java
+
+

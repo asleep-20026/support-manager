@@ -1,0 +1,22 @@
+@startuml listAttendance()
+actor Frontend
+participant "schema.graphql" as Schema
+participant "Resolver"
+participant "UseCase Port"
+participant "UseCase Service"
+participant "Repository Port"
+participant "Repository Impl"
+database "Base de Datos" as DB
+
+Frontend -> Schema : query listarAsistencias(empleadoId)
+Schema -> Resolver : validar y pasar argumentos
+Resolver -> "UseCase Port" : construir consulta
+"UseCase Port" -> "UseCase Service" : delega ejecución
+"UseCase Service" -> "Repository Port" : llamada a repositorio
+"Repository Port" -> "Repository Impl" : ejecutar consulta
+"Repository Impl" -> DB : SQL -> datos
+DB --> "Repository Impl" : resultado
+"Repository Impl" --> "UseCase Service" : lista de asistencias
+"UseCase Service" --> Resolver : resultado del dominio
+Resolver --> Frontend : respuesta GraphQL
+@enduml

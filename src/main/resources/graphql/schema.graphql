@@ -1,0 +1,47 @@
+scalar Date
+
+type Query {
+  listarAsistencias(empleadoId: Int!): [Attendance]
+  listarEmpleados: [Employee]
+}
+
+type Mutation {
+  registrarAsistencia(
+    id: Int!,
+    tipo: String!,
+    fecha: Date!,
+    empleadoId: Int!
+  ): Attendance
+
+    crearEmpleado(
+        nombre: String!,
+        correo: String!,
+        faceID: String!
+    ): Employee
+}
+
+
+
+type Attendance {
+  id: Int
+  tipo: String
+  fecha: Date
+  empleadoId: Int
+}
+
+
+
+type Role {
+    id: ID!
+    nombre: String!
+}
+
+type Employee {
+    id: ID!
+    nombre: String!
+    correo: String!
+    faceID: String
+    role: Role
+    createdAt: String
+    updatedAt: String
+}
